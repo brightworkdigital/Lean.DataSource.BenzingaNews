@@ -13,7 +13,15 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\Configuration\QuantConnect.Configuration.csproj" />
       <ProjectReference Include="..\QuantConnect.DataSource.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="..\..\Launcher\config.json">
+        <Link>config.json</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
     </ItemGroup>
 
 </Project>

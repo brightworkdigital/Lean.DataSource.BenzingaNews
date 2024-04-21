@@ -26,44 +26,56 @@ namespace QuantConnect.DataProcessing
     {
         public static void Main()
         {
-            var dateValue = Environment.GetEnvironmentVariable("QC_DATAFLEET_DEPLOYMENT_DATE");
-            var date = Parse.DateTimeExact(dateValue, "yyyyMMdd");
+            // var dateValue = Environment.GetEnvironmentVariable("QC_DATAFLEET_DEPLOYMENT_DATE");
+            // var date = Parse.DateTimeExact(dateValue, "yyyyMMdd");
+            
+            var timeUtc = DateTime.UtcNow;
+            TimeZoneInfo easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+            DateTime easternTime = TimeZoneInfo.ConvertTimeFromUtc(timeUtc, easternZone);
+            var endDate = easternTime.AddDays(-1).Date;
+            // var startDate = new DateTime(2023, 4, 1);
+            var startDate = endDate.AddDays(-3);
 
-            var tempOutputDirectory = Config.Get("temp-output-directory", "/temp-output-directory");
+            var tempOutputDirectory = Config.Get("temp-output-directory", "/tmp/temp-output-directory");
             var processedDataFolder = Config.Get("processed-data-directory", Path.Combine(Globals.DataFolder, "alternative", "benzinga"));
-            var downloadDestinationFolder = Directory.CreateDirectory(Path.Combine(Config.Get("raw-folder", "/raw"), "alternative", "benzinga"));
+            var downloadDestinationFolder = Directory.CreateDirectory(Path.Combine(Config.Get("raw-folder", "/tmp/raw"), "alternative", "benzinga"));
 
             var timer = Stopwatch.StartNew();
 
             try
             {
-                var downloader = new BenzingaNewsDataDownloader(downloadDestinationFolder, null);
-                downloader.Download(date, date);
+                var downloader = new BenzingaNewsJsonDownloader(downloadDestinationFolder, "3dd92888678144968d54c4aa1448e0b9");
+                downloader.Download(startDate, endDate);  
             }
             catch (Exception err)
             {
                 Log.Error(err, "Downloading failed. Exiting with status code 1");
                 Environment.Exit(1);
             }
-
-            var converter = new BenzingaNewsDataConverter(
-                new DirectoryInfo(Path.Combine(Config.Get("raw-folder", "/raw"), "alternative", "benzinga")),
-                new DirectoryInfo(Path.Combine(tempOutputDirectory, "alternative", "benzinga")),
-                new DirectoryInfo(processedDataFolder)
-            );
-
-            try
+            
+            
+            foreach (var date in Time.EachDay(startDate, endDate))
             {
-                if (!converter.Convert(date))
+                var converter = new BenzingaNewsDataConverter(
+                    new DirectoryInfo(Path.Combine(Config.Get("raw-folder", "/tmp/raw"), "alternative", "benzinga")),
+                    new DirectoryInfo(Path.Combine(tempOutputDirectory, "alternative", "benzinga")),
+                    new DirectoryInfo(processedDataFolder)
+                );
+
+                try
                 {
-                    Log.Error($"Alternative.BenzingaNews(): Failed to successfully convert data for date {date:yyyy-MM-dd}. Exiting with status code 1");
+                    if (!converter.Convert(date))
+                    {
+                        Log.Error($"Alternative.BenzingaNews(): Failed to successfully convert data for date {date:yyyy-MM-dd}. Exiting with status code 1");
+                        Environment.Exit(1);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log.Error(e, "Converter failed. Exiting with status code 1");
                     Environment.Exit(1);
                 }
-            }
-            catch (Exception e)
-            {
-                Log.Error(e, "Converter failed. Exiting with status code 1");
-                Environment.Exit(1);
+
             }
 
             timer.Stop();
